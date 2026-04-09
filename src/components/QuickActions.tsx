@@ -17,9 +17,10 @@ interface QuickAction {
 
 interface QuickActionsProps {
   hidden?: boolean;
+  onClose?: () => void;
 }
 
-export function QuickActions({ hidden = false }: QuickActionsProps) {
+export function QuickActions({ hidden = false, onClose }: QuickActionsProps) {
   const { isAuthenticated } = useAuth();
   const { isRunning, start, stop, elapsedTime } = useTimer();
   const { addTimerSession } = useData();
@@ -62,6 +63,15 @@ export function QuickActions({ hidden = false }: QuickActionsProps) {
       return;
     }
     addWaterEntry(1);
+  };
+
+  const handleAction = (callback: () => void) => {
+    callback();
+    if (onClose) {
+      onClose();
+    } else {
+      setIsOpen(false);
+    }
   };
 
   const quickActions: QuickAction[] = [
@@ -110,10 +120,7 @@ export function QuickActions({ hidden = false }: QuickActionsProps) {
             {quickActions.map((action, index) => (
               <button
                 key={index}
-                onClick={() => {
-                  action.onClick();
-                  setIsOpen(false);
-                }}
+                onClick={() => handleAction(action.onClick)}
                 className={`flex items-center gap-3 px-4 py-3 rounded-full text-white shadow-lg transition-all duration-200 active:scale-95 ${action.color}`}
                 style={{
                   animation: `slideIn 0.2s ease-out ${index * 0.05}s both`,

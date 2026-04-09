@@ -16,6 +16,15 @@ interface GoalsContextType {
   checkGoalCompletion: (category: string, value: number) => void;
   getBadgeById: (badgeId: string) => Badge | undefined;
   hasBadge: (badgeId: string) => boolean;
+  checkAndAwardBadges: (
+    totalWorkHours: number,
+    totalReadingHours: number,
+    currentStreak: number,
+    longestStreak: number,
+    nightWorkHours?: number,
+    morningWorkHours?: number,
+    waterStreak?: number
+  ) => string[] | undefined;
 }
 
 const GoalsContext = createContext<GoalsContextType | undefined>(undefined);
@@ -196,7 +205,67 @@ export function GoalsProvider({ children }: { children: React.ReactNode }) {
     return userBadges.some(ub => ub.badgeId === badgeId);
   }, [userBadges, user]);
 
+  // Check and award badges based on user activities
+  const checkAndAwardBadges = useCallback((
+    totalWorkHours: number,
+    totalReadingHours: number,
+    currentStreak: number,
+    longestStreak: number,
+    nightWorkHours: number = 0,
+    morningWorkHours: number = 0,
+    waterStreak: number = 0
+  ) => {
+    if (!user) return;
 
+    const newBadges: string[] = [];
+
+    PREDEFINED_BADGES.forEach(badge => {
+      if (hasBadge(badge.id)) return;
+
+      let shouldAward = false;
+
+      switch (badge.id) {
+        case 'badge_streak_7':
+          shouldAward = currentStreak >= 7 || longestStreak >= 7;
+          break;
+        case 'badge_streak_30':
+          shouldAward = currentStreak >= 30 || longestStreak >= 30;
+          break;
+        case 'badge_work_100':
+          shouldAward = totalWorkHours >= 100;
+          break;
+        case 'badge_work_500':
+          shouldAward = totalWorkHours >= 500;
+          break;
+        case 'badge_reading_10':
+          shouldAward = totalReadingHours >= 10;
+          break;
+        case 'badge_reading_50':
+          shouldAward = totalReadingHours >= 50;
+          break;
+        case 'badge_night_owl':
+          shouldAward = nightWorkHours >= 10;
+          break;
+        case 'badge_early_bird':
+          shouldAward = morningWorkHours >= 10;
+          break;
+        case 'badge_water_7':
+          shouldAward = waterStreak >= 7;
+          break;
+      }
+
+      if (shouldAward) {
+        newBadges.push(badge.id);
+        setUserBadges(prev => [...prev, { badgeId: badge.id, earnedAt: new Date().toISOString() }]);
+        toast.success(`🏆 Yeni Rozet: ${badge.name}!`, {
+          description: badge.description,
+          duration: 5000,
+        });
+      }
+    });
+
+    return newBadges;
+  }, [hasBadge, user]);
 
   return (
     <GoalsContext.Provider value={{
@@ -211,6 +280,7 @@ export function GoalsProvider({ children }: { children: React.ReactNode }) {
       checkGoalCompletion,
       getBadgeById,
       hasBadge,
+      checkAndAwardBadges,
     }}>
       {children}
     </GoalsContext.Provider>

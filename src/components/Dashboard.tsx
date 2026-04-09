@@ -6,6 +6,7 @@ import { useWellness } from '@/context/WellnessContext';
 import { useGoals } from '@/context/GoalsContext';
 import { useAuth } from '@/context/AuthContext';
 import { useSmartFeatures } from '@/context/SmartFeaturesContext';
+import { useStreak, getStreakMessage } from '@/hooks/useStreak';
 import { format } from '@/lib/utils';
 
 export function Dashboard() {
@@ -29,6 +30,9 @@ export function Dashboard() {
   const today = new Date().toDateString();
   const timerSessions = getUserTimerSessions();
   
+  // Use real streak calculation
+  const { currentStreak, longestStreak } = useStreak(timerSessions);
+  
   // Today's stats
   const todayWorkMinutes = timerSessions
     .filter(s => new Date(s.startedAt).toDateString() === today)
@@ -39,17 +43,8 @@ export function Dashboard() {
   const activeGoals = getActiveGoals();
   const completedGoalsToday = activeGoals.filter(g => g.currentValue >= g.targetValue).length;
   const productivity = getTodayProductivityScore();
-
-  // Streak calculation
-  const yesterday = new Date();
-  yesterday.setDate(yesterday.getDate() - 1);
-  const yesterdayWork = timerSessions
-    .filter(s => new Date(s.startedAt).toDateString() === yesterday.toDateString())
-    .reduce((sum, s) => sum + s.duration, 0);
   
-  let streak = 0;
-  if (todayWorkMinutes > 0) streak = 1;
-  if (yesterdayWork > 0) streak = 2;
+  const streak = currentStreak;
 
   const stats = [
     {
@@ -98,9 +93,12 @@ export function Dashboard() {
             <p className="text-sm opacity-80">{format(new Date(), 'EEEE, d MMMM')}</p>
             <p className="text-2xl font-bold mt-1">Merhaba, {user.name.split(' ')[0]}! 👋</p>
             <p className="text-sm opacity-80 mt-2">
-              {todayWorkMinutes > 0 
-                ? `Bugün ${todayWorkHours} saat çalıştın, harika gidiyorsun!` 
-                : 'Bugün çalışmaya başlamadın, hadi başlayalım!'}
+              {getStreakMessage(currentStreak)}
+              {longestStreak > currentStreak && currentStreak > 0 && (
+                <span className="block text-xs mt-1 opacity-70">
+                  En uzun streak: {longestStreak} gün 🔥
+                </span>
+              )}
             </p>
           </div>
         </CardContent>

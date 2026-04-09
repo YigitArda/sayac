@@ -1,31 +1,43 @@
 import { clsx, type ClassValue } from "clsx"
 import { twMerge } from "tailwind-merge"
+import { format as dateFnsFormat } from "date-fns"
+import { tr } from "date-fns/locale"
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
-// Date formatting utility
-export function format(date: Date, formatStr: string): string {
-  const d = new Date(date);
+// Date formatting utility with Turkish locale
+export function format(date: Date | string | number, formatStr: string): string {
+  const d = typeof date === 'string' || typeof date === 'number' ? new Date(date) : date;
   
-  const pad = (n: number) => n.toString().padStart(2, '0');
+  // date-fns doesn't support EEEE, use eeee instead (ISO day of week)
+  // Replace common format tokens
+  const mappedFormat = formatStr
+    .replace(/EEEE/g, 'eeee')  // Full day name
+    .replace(/MMM/g, 'MMM')    // Short month name
+    .replace(/MMMM/g, 'MMMM'); // Full month name
   
-  const tokens: Record<string, string> = {
-    'yyyy': d.getFullYear().toString(),
-    'MM': pad(d.getMonth() + 1),
-    'dd': pad(d.getDate()),
-    'HH': pad(d.getHours()),
-    'mm': pad(d.getMinutes()),
-    'ss': pad(d.getSeconds()),
-  };
-  
-  let result = formatStr;
-  Object.entries(tokens).forEach(([key, value]) => {
-    result = result.replace(key, value);
-  });
-  
-  return result;
+  try {
+    return dateFnsFormat(d, mappedFormat, { locale: tr })
+  } catch {
+    // Fallback to basic formatting
+    const pad = (n: number) => n.toString().padStart(2, '0');
+    const tokens: Record<string, string> = {
+      'yyyy': d.getFullYear().toString(),
+      'MM': pad(d.getMonth() + 1),
+      'dd': pad(d.getDate()),
+      'HH': pad(d.getHours()),
+      'mm': pad(d.getMinutes()),
+      'ss': pad(d.getSeconds()),
+    };
+    
+    let result = formatStr;
+    Object.entries(tokens).forEach(([key, value]) => {
+      result = result.replace(key, value);
+    });
+    return result;
+  }
 }
 
 // Time formatting utility

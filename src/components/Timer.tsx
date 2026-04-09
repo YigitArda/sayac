@@ -1,14 +1,14 @@
 import { useState } from 'react';
-import { Play, Pause, Square, RotateCcw, Share2, Clock } from 'lucide-react';
+import { Play, Pause, Square, RotateCcw, Clock, Heart } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Switch } from '@/components/ui/switch';
 import { useTimer } from '@/hooks/useTimer';
 import { useData } from '@/context/DataContext';
 import { useAuth } from '@/context/AuthContext';
+import { useCouple } from '@/context/CoupleContext';
 import { toast } from 'sonner';
 
 const categories = [
@@ -24,11 +24,11 @@ const categories = [
 export function Timer() {
   const { isRunning, elapsedTime, formattedTime, start, pause, resume, stop, reset, startTime } = useTimer();
   const { addTimerSession } = useData();
+  const { addWorkSession } = useCouple();
   const { isAuthenticated } = useAuth();
   
   const [category, setCategory] = useState('Çalışma');
   const [description, setDescription] = useState('');
-  const [isShared, setIsShared] = useState(true);
   const [showSaveDialog, setShowSaveDialog] = useState(false);
 
   const handleStart = () => {
@@ -60,14 +60,18 @@ export function Timer() {
 
     const durationMinutes = Math.floor(elapsedTime / 60);
     
+    // Save to general data
     addTimerSession({
       duration: durationMinutes,
       category,
       description: description || undefined,
       startedAt: startTime || new Date(),
       endedAt: new Date(),
-      isShared,
+      isShared: false,
     });
+
+    // Also add to couple feed
+    addWorkSession(durationMinutes, category, description);
 
     toast.success('Çalışma oturumu kaydedildi!');
     setShowSaveDialog(false);
@@ -128,19 +132,9 @@ export function Timer() {
                 />
               </div>
 
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-2">
-                  <Switch
-                    id="share"
-                    checked={isShared}
-                    onCheckedChange={setIsShared}
-                    disabled={isRunning}
-                  />
-                  <Label htmlFor="share" className="flex items-center gap-2 cursor-pointer">
-                    <Share2 className="w-4 h-4" />
-                    Paylaş
-                  </Label>
-                </div>
+              <div className="flex items-center gap-2 text-sm text-pink-500 bg-pink-50 dark:bg-pink-900/20 p-2 rounded">
+                <Heart className="w-4 h-4 fill-pink-500" />
+                <span>Çalışma bitince otomatik paylaşılacak</span>
               </div>
             </div>
 
@@ -196,7 +190,7 @@ export function Timer() {
                 Sil
               </Button>
               <Button onClick={handleSave} className="gap-2">
-                <Share2 className="w-4 h-4" />
+                <Clock className="w-4 h-4" />
                 Kaydet
               </Button>
             </div>

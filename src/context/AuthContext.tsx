@@ -1,130 +1,111 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import type { User } from '@/types';
-import { safeGetItem, safeSetItem, safeRemoveItem } from '@/lib/storage';
+import { FirebaseAuthService } from '@/services/firebaseAuth';
+import { toast } from 'sonner';
 
 interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
-  login: (email: string, password: string) => boolean;
-  register: (name: string, email: string, password: string) => boolean;
-  logout: () => void;
+  isLoading: boolean;
+  login: (email: string, password: string) => Promise<boolean>;
+  register: (name: string, email: string, password: string) => Promise<boolean>;
+  logout: () => Promise<void>;
+  loginWithGoogle: () => Promise<boolean>;
   updateUser: (updates: Partial<User>) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-const MOCK_USERS_KEY = 'focustrack_mock_users';
-const CURRENT_USER_KEY = 'focustrack_current_user';
-
-// Demo users
-const DEMO_USERS: User[] = [
-  {
-    id: 'user_1',
-    name: 'Ahmet Yılmaz',
-    email: 'ahmet@example.com',
-    avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=ahmet',
-    createdAt: new Date('2024-01-01').toISOString(),
-  },
-  {
-    id: 'user_2',
-    name: 'Zeynep Kaya',
-    email: 'zeynep@example.com',
-    avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=zeynep',
-    createdAt: new Date('2024-01-15').toISOString(),
-  },
-  {
-    id: 'user_3',
-    name: 'Mehmet Demir',
-    email: 'mehmet@example.com',
-    avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=mehmet',
-    createdAt: new Date('2024-02-01').toISOString(),
-  },
-];
-
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Initialize demo users
+  // Listen to auth state changes
   useEffect(() => {
-    const existingUsers = safeGetItem<User[]>(MOCK_USERS_KEY, []);
-    if (existingUsers.length === 0) {
-      safeSetItem(MOCK_USERS_KEY, DEMO_USERS);
-    }
+    const unsubscribe = FirebaseAuthService.onAuthStateChange((firebaseUser) => {
+      setUser(firebaseUser);
+      setIsLoading(false);
+    });
+
+    return () => unsubscribe();
   }, []);
 
-  // Load saved session
-  useEffect(() => {
-    const savedUser = safeGetItem<User | null>(CURRENT_USER_KEY, null);
-    if (savedUser) {
-      setUser(savedUser);
-      setIsAuthenticated(true);
-    }
-    setIsLoading(false);
-  }, []);
-
-  const login = useCallback((email: string, _password: string): boolean => {
-    const users = safeGetItem<User[]>(MOCK_USERS_KEY, []);
-    const foundUser = users.find(u => u.email === email);
-    
-    if (foundUser) {
-      setUser(foundUser);
-      setIsAuthenticated(true);
-      safeSetItem(CURRENT_USER_KEY, foundUser);
+  const login = useCallback(async (email: string, password: string): Promise<boolean> => {
+    try {
+      setIsLoading(true);
+      await FirebaseAuthService.login(email, password);
+      toast.success('Giriş başarılı!');
       return true;
-    }
-    return false;
-  }, []);
-
-  const register = useCallback((name: string, email: string, _password: string): boolean => {
-    const users = safeGetItem<User[]>(MOCK_USERS_KEY, []);
-    
-    if (users.some(u => u.email === email)) {
+    } catch (error: any) {
+      toast.error(error.message || 'Giriş başarısız');
       return false;
+    } finally {
+      setIsLoading(false);
     }
-
-    const newUser: User = {
-      id: `user_${Date.now()}`,
-      name,
-      email,
-      avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${email}`,
-      createdAt: new Date().toISOString(),
-    };
-
-    users.push(newUser);
-    safeSetItem(MOCK_USERS_KEY, users);
-    
-    setUser(newUser);
-    setIsAuthenticated(true);
-    safeSetItem(CURRENT_USER_KEY, newUser);
-    return true;
   }, []);
 
-  const logout = useCallback(() => {
-    setUser(null);
-    setIsAuthenticated(false);
-    safeRemoveItem(CURRENT_USER_KEY);
+  const register = useCallback(async (name: string, email: string, password: string): Promise<boolean> => {
+    try {
+      setIsLoading(true);
+      await FirebaseAuthService.register(email, password, name);
+      toast.success('Kayıt başarılı!');
+      return true;
+    } catch (error: any) {
+      toast.error(error.message || 'Kayıt başarısız');
+      return false;
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  const loginWithGoogle = useCallback(async (): Promise<boolean> => {
+    try {
+      setIsLoading(true);
+      await FirebaseAuthService.loginWithGoogle();
+      toast.success('Google ile giriş başarılı!');
+      return true;
+    } catch (error: any) {
+      toast.error(error.message || 'Google girişi başarısız');
+      return false;
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  const logout = useCallback(async (): Promise<void> => {
+    try {
+      await FirebaseAuthService.logout();
+      toast.success('Çıkış yapıldı');
+    } catch (error: any) {
+      toast.error(error.message || 'Çıkış yapılamadı');
+    }
   }, []);
 
   const updateUser = useCallback((updates: Partial<User>) => {
     if (user) {
-      const updatedUser = { ...user, ...updates };
-      setUser(updatedUser);
-      safeSetItem(CURRENT_USER_KEY, updatedUser);
-      
-      const users = safeGetItem<User[]>(MOCK_USERS_KEY, []);
-      const updatedUsers = users.map(u => u.id === user.id ? updatedUser : u);
-      safeSetItem(MOCK_USERS_KEY, updatedUsers);
+      setUser({ ...user, ...updates });
     }
   }, [user]);
 
   if (isLoading) {
-    return <div className="min-h-screen flex items-center justify-center">Yükleniyor...</div>;
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
   }
 
   return (
-    <AuthContext.Provider value={{ user, isAuthenticated, login, register, logout, updateUser }}>
+    <AuthContext.Provider value={{ 
+      user, 
+      isAuthenticated: !!user, 
+      isLoading,
+      login, 
+      register, 
+      logout, 
+      loginWithGoogle,
+      updateUser 
+    }}>
       {children}
     </AuthContext.Provider>
   );

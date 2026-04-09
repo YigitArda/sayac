@@ -1,16 +1,17 @@
 import { useState } from 'react';
-import { LogIn, UserPlus, LogOut, User } from 'lucide-react';
+import { LogIn, UserPlus, LogOut, User, Chrome } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Separator } from '@/components/ui/separator';
 import { useAuth } from '@/context/AuthContext';
 import { toast } from 'sonner';
 
 export function Auth() {
-  const { isAuthenticated, user, login, register, logout } = useAuth();
+  const { isAuthenticated, user, login, register, logout, loginWithGoogle } = useAuth();
   
   const [loginEmail, setLoginEmail] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
@@ -19,7 +20,7 @@ export function Auth() {
   const [registerEmail, setRegisterEmail] = useState('');
   const [registerPassword, setRegisterPassword] = useState('');
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!loginEmail || !loginPassword) {
@@ -27,17 +28,14 @@ export function Auth() {
       return;
     }
 
-    const success = login(loginEmail, loginPassword);
+    const success = await login(loginEmail, loginPassword);
     if (success) {
-      toast.success('Giriş başarılı!');
       setLoginEmail('');
       setLoginPassword('');
-    } else {
-      toast.error('E-posta veya şifre hatalı');
     }
   };
 
-  const handleRegister = (e: React.FormEvent) => {
+  const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!registerName || !registerEmail || !registerPassword) {
@@ -50,32 +48,20 @@ export function Auth() {
       return;
     }
 
-    const success = register(registerName, registerEmail, registerPassword);
+    const success = await register(registerName, registerEmail, registerPassword);
     if (success) {
-      toast.success('Kayıt başarılı!');
       setRegisterName('');
       setRegisterEmail('');
       setRegisterPassword('');
-    } else {
-      toast.error('Bu e-posta adresi zaten kullanımda');
     }
   };
 
-  const handleLogout = () => {
-    logout();
-    toast.success('Çıkış yapıldı');
+  const handleGoogleLogin = async () => {
+    await loginWithGoogle();
   };
 
-  // Demo accounts
-  const demoAccounts = [
-    { email: 'ahmet@example.com', name: 'Ahmet Yılmaz' },
-    { email: 'zeynep@example.com', name: 'Zeynep Kaya' },
-    { email: 'mehmet@example.com', name: 'Mehmet Demir' },
-  ];
-
-  const fillDemoAccount = (email: string) => {
-    setLoginEmail(email);
-    setLoginPassword('password');
+  const handleLogout = async () => {
+    await logout();
   };
 
   if (isAuthenticated && user) {
@@ -110,6 +96,27 @@ export function Auth() {
         </CardTitle>
       </CardHeader>
       <CardContent>
+        {/* Google Login */}
+        <Button 
+          variant="outline" 
+          className="w-full gap-2 mb-4" 
+          onClick={handleGoogleLogin}
+        >
+          <Chrome className="w-5 h-5 text-blue-500" />
+          Google ile Giriş Yap
+        </Button>
+
+        <div className="relative mb-4">
+          <div className="absolute inset-0 flex items-center">
+            <Separator />
+          </div>
+          <div className="relative flex justify-center text-xs uppercase">
+            <span className="bg-background px-2 text-muted-foreground">
+              veya e-posta ile
+            </span>
+          </div>
+        </div>
+
         <Tabs defaultValue="login" className="w-full">
           <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="login">
@@ -148,26 +155,6 @@ export function Auth() {
                 Giriş Yap
               </Button>
             </form>
-
-            {/* Demo Accounts */}
-            <div className="pt-4 border-t">
-              <p className="text-xs text-muted-foreground mb-2">Hızlı Demo Girişi:</p>
-              <div className="flex flex-wrap gap-2">
-                {demoAccounts.map((account) => (
-                  <Button
-                    key={account.email}
-                    variant="outline"
-                    size="sm"
-                    onClick={() => fillDemoAccount(account.email)}
-                  >
-                    {account.name}
-                  </Button>
-                ))}
-              </div>
-              <p className="text-xs text-muted-foreground mt-2">
-                Şifre: password
-              </p>
-            </div>
           </TabsContent>
 
           <TabsContent value="register" className="space-y-4">
